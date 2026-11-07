@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>学习中心 · 词格</title>
+<link rel="stylesheet" href="learn.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <div class="logo">学</div>
+    <div class="brand-text">
+      <h1>学习中心</h1>
+      <p>词格 · 和弦字典 / 听辨练习 / 实用乐理</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span class="toast" id="toast"></span>
+    <a class="btn btn-ghost" href="index.html">词格</a>
+    <a class="btn btn-ghost" href="harmony.html" target="_blank" rel="noopener">和弦台</a>
+    <a class="btn btn-ghost" href="studio.html" target="_blank" rel="noopener">编曲台</a>
+  </div>
+</header>
+
+<main class="layout">
+  <nav class="tabs" id="tabs">
+    <button class="tab on" data-view="dict">和弦字典</button>
+    <button class="tab" data-view="ear">听辨练习</button>
+    <button class="tab" data-view="theory">实用乐理</button>
+  </nav>
+
+  <!-- 和弦字典 -->
+  <section class="view" id="view-dict">
+    <div class="dict-grid">
+      <aside class="side">
+        <section class="panel">
+          <h2>调性与级数</h2>
+          <div class="row">
+            <label class="field"><span>调</span><select id="keySelect"></select></label>
+            <label class="field"><span>调式</span>
+              <select id="modeSelect">
+                <option value="major">大调</option>
+                <option value="minor">小调</option>
+              </select>
+            </label>
+          </div>
+          <div class="seg" id="seventhSeg">
+            <button class="on" data-seventh="0">三和弦</button>
+            <button data-seventh="1">七和弦</button>
+          </div>
+          <div class="degree-grid" id="degreeGrid"></div>
+        </section>
+
+        <section class="panel">
+          <h2>自由查和弦</h2>
+          <div class="lib-tabs" id="qualTabs"></div>
+          <div class="lib-grid" id="rootGrid"></div>
+        </section>
+      </aside>
+
+      <section class="detail panel" id="detailCard">
+        <div class="d-head">
+          <div>
+            <h2 id="dName">C</h2>
+            <p id="dSub">大三和弦 · I 级 · 主功能</p>
+          </div>
+          <button class="btn btn-primary" id="btnPlayChord">▶ 试听和弦</button>
+        </div>
+        <div class="note-chips" id="noteChips"></div>
+        <div class="metrics">
+          <div><span>构成音</span><b id="mNotes">—</b></div>
+          <div><span>音程（半音）</span><b id="mIntervals">—</b></div>
+          <div><span>级数</span><b id="mDegree">—</b></div>
+          <div><span>功能</span><b id="mFunc">—</b></div>
+        </div>
+        <p class="tip" id="dTip"></p>
+        <div class="d-foot">
+          <span class="hint" id="dHint">点击左侧级数或下方和弦库切换</span>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost" id="btnSendChord">发送和弦到词格</button>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel progress-panel">
+      <h2>这个调里的常用进行</h2>
+      <div class="prog-list" id="progList"></div>
+    </section>
+  </section>
+
+  <!-- 听辨练习 -->
+  <section class="view" id="view-ear" hidden>
+    <div class="ear-grid">
+      <section class="panel ear-side">
+        <h2>练习设置</h2>
+        <label class="field"><span>难度</span>
+          <select id="earLevel">
+            <option value="basic">入门 · 大三 / 小三</option>
+            <option value="plus" selected>进阶 · 加七和弦</option>
+            <option value="hard">挑战 · 全品质</option>
+          </select>
+        </label>
+        <div class="stat-grid">
+          <div><span>得分</span><b id="statScore">0</b></div>
+          <div><span>正确率</span><b id="statAcc">—</b></div>
+          <div><span>连对</span><b id="statStreak">0</b></div>
+          <div><span>最佳连对</span><b id="statBest">0</b></div>
+        </div>
+        <button class="btn btn-primary btn-block" id="btnHear">▶ 播放题目</button>
+        <button class="btn btn-ghost btn-block" id="btnNewQ">换一题</button>
+        <p class="hint">听到和弦后，从右侧四个选项里选出正确和弦。答错会显示构成音，方便对照记忆。</p>
+      </section>
+
+      <section class="panel ear-stage">
+        <div class="stage-head">
+          <h2>听辨题目 <small id="earLevelLabel">进阶</small></h2>
+          <span class="hint" id="earHint">点击「播放题目」开始</span>
+        </div>
+        <div class="options" id="earOptions"></div>
+        <p class="feedback" id="earFeedback"></p>
+        <div class="stage-foot">
+          <span class="hint" id="revealInfo"></span>
+          <div class="spacer"></div>
+          <button class="btn btn-primary" id="btnNext" hidden>下一题 →</button>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- 实用乐理 -->
+  <section class="view" id="view-theory" hidden>
+    <div class="theory-grid">
+      <section class="panel">
+        <h2>节奏与拍号</h2>
+        <p class="theory-p">音乐靠重音的重复形成节奏，最小重复单元是小节，重复模式用拍号表示。</p>
+        <ul class="theory-list">
+          <li><b>4/4</b> 强–弱–次强–弱，流行与摇滚最常用。</li>
+          <li><b>3/4</b> 强–弱–弱，圆舞曲与抒情段常用。</li>
+          <li><b>6/8</b> 强–弱–弱–次强–弱–弱，流动感更强。</li>
+        </ul>
+        <p class="theory-p">BPM 表示每分钟多少拍；编曲台把一拍再等分成 4 个十六分音符来排织体。</p>
+      </section>
+
+      <section class="panel">
+        <h2>十二平均律与音程</h2>
+        <p class="theory-p">以 A=440Hz 为基准，把 440–880Hz 等比分成 12 份，得到 12 个音高。相邻两个音相差一个半音。</p>
+        <div class="interval-table" id="intervalTable"></div>
+      </section>
+
+      <section class="panel">
+        <h2>和弦代号</h2>
+        <p class="theory-p">和弦代号由根音 + 品质后缀组成：Cmaj7 = C 根音的大七和弦；Am7 = A 根音的小七和弦；C/E = C 和弦的第一转位（低音 E）。</p>
+        <ul class="theory-list">
+          <li><b>三度叠置</b>：根音往上叠三度、五度，得到大三/小三；再叠七度得到七和弦。</li>
+          <li><b>四种变化</b>：sus 换掉三音、dim 减五度、aug 增五度、add9 加九度。</li>
+          <li><b>斜杠</b>：斜杠后写低音，常用于转位与走贝斯。</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>顺阶和弦表 <small id="tableKey">C 大调</small></h2>
+        <table class="deg-table">
+          <thead><tr><th>级数</th><th>和弦</th><th>功能</th><th>说明</th></tr></thead>
+          <tbody id="theoryTable"></tbody>
+        </table>
+      </section>
+
+      <section class="panel span2">
+        <h2>常用和弦进行</h2>
+        <div class="prog-cards" id="theoryProgressions"></div>
+      </section>
+    </div>
+  </section>
+</main>
+
+<script src="synth.js"></script>
+<script src="learn.js"></script>
+</body>
+</html>

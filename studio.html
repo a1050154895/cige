@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>编曲台 · 词格</title>
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <div class="logo">编</div>
+    <div class="brand-text">
+      <h1>编曲台</h1>
+      <p>词格 · 多轨伴奏编曲工作台</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span class="toast" id="toast"></span>
+    <a class="btn btn-ghost" href="harmony.html" target="_blank" rel="noopener">和弦台</a>
+    <a class="btn btn-ghost" href="learn.html" target="_blank" rel="noopener">学习</a>
+    <button class="btn btn-ghost" id="btnSheet">和弦谱</button>
+    <button class="btn btn-ghost" id="btnMidi">导出 MIDI</button>
+    <button class="btn btn-ghost" id="btnJson">工程 JSON</button>
+    <button class="btn btn-primary" id="btnSend">发送到词格</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="side">
+    <section class="panel">
+      <h2>风格模板 <small>一键换织体</small></h2>
+      <div class="styles" id="styles"></div>
+    </section>
+
+    <section class="panel">
+      <h2>伴奏组合 <small>乐器 + 织体打包</small></h2>
+      <div class="combo-head">
+        <button class="chip" id="btnOnlyFav">只看收藏</button>
+        <span class="hint" id="histInfo">—</span>
+      </div>
+      <div class="combos" id="combos"></div>
+    </section>
+
+    <section class="panel">
+      <h2>乐器池 <small>点击试听</small></h2>
+      <div class="inst-grid" id="instGrid"></div>
+    </section>
+  </aside>
+
+  <section class="main">
+    <div class="transport card">
+      <button class="play" id="btnPlay" aria-label="播放"><span class="ico-play"></span></button>
+      <div class="pos">
+        <b id="posBar">—</b>
+        <span id="posInfo">— 小节</span>
+      </div>
+      <div class="spacer"></div>
+      <label class="inline"><span>BPM</span><input id="bpmInput" type="number" min="40" max="240" step="1" value="120"></label>
+      <label class="inline"><span>拍号</span>
+        <select id="bpbSelect">
+          <option value="2">2/4</option>
+          <option value="3">3/4</option>
+          <option value="4" selected>4/4</option>
+          <option value="6">6/8</option>
+        </select>
+      </label>
+      <button class="mini" id="btnVariation">换织体</button>
+      <span class="hint" id="loopInfo">—</span>
+    </div>
+
+    <div class="tracks card">
+      <div class="tracks-head">
+        <h2>轨道与混音</h2>
+        <span class="hint">音量 · 声相 · 独奏 · 乐器</span>
+        <div class="spacer"></div>
+        <span class="hint" id="mixInfo">—</span>
+      </div>
+      <div class="track-rows" id="trackRows"></div>
+    </div>
+
+    <div class="bars card">
+      <div class="bars-head">
+        <h2>和弦进行</h2>
+        <span class="hint" id="progInfo">—</span>
+        <div class="spacer"></div>
+        <button class="mini" id="btnAddBar">＋ 小节</button>
+        <button class="mini" id="btnDelBar">－ 末尾</button>
+        <button class="mini" id="btnClearBars">清空</button>
+      </div>
+      <div class="bar-grid" id="barGrid"></div>
+      <div class="bars-foot">
+        <span class="hint">每小节和弦决定所有轨道的演奏音高；段落决定织体强弱。</span>
+        <div class="spacer"></div>
+        <a class="link" href="harmony.html" target="_blank" rel="noopener">打开和弦台做更细的和声编辑 →</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<datalist id="sections">
+  <option value="主歌"></option>
+  <option value="预副歌"></option>
+  <option value="副歌"></option>
+  <option value="桥段"></option>
+  <option value="尾声"></option>
+</datalist>
+
+<script src="synth.js"></script>
+<script src="studio.js"></script>
+</body>
+</html>

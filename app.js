@@ -99,6 +99,7 @@
     grid: $('#grid'), gridScroll: $('#gridScroll'), gridInfo: $('#gridInfo'),
     btnAddSection: $('#btnAddSection'),
     btnExport: $('#btnExport'), saveHint: $('#saveHint'), btnHarmony: $('#btnHarmony'),
+    btnStudio: $('#btnStudio'), btnLearn: $('#btnLearn'),
     dialog: $('#exportDialog'), exportText: $('#exportText'), exportTabs: $('#exportTabs'),
     exportInfo: $('#exportInfo'), btnCopy: $('#btnCopy'), btnDownload: $('#btnDownload'),
     btnCloseDialog: $('#btnCloseDialog')
@@ -991,6 +992,14 @@
 
   els.btnHarmony.addEventListener('click', () => {
     window.open('harmony.html', 'cige-harmony', 'width=1180,height=820,menubar=no,toolbar=no');
+  });
+
+  els.btnStudio.addEventListener('click', () => {
+    window.open('studio.html', 'cige-studio', 'width=1240,height=860,menubar=no,toolbar=no');
+  });
+
+  els.btnLearn.addEventListener('click', () => {
+    window.open('learn.html', 'cige-learn', 'width=1180,height=820,menubar=no,toolbar=no');
   });
 
   window.addEventListener('message', e => {
