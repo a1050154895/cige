@@ -506,7 +506,7 @@
     const chorus = c.lift > 1;
     const center = Math.min(pool.length - 2, 1 + (c.barIndex % 2) + (chorus ? 1 : 0));
     let syl = 0;
-    for (let beat = 0; beat < bar.cells.length; beat++) {
+    for (let beat = 0; beat < Math.min(bar.cells.length, c.bpb); beat++) {
       const units = splitUnits(bar.cells[beat]);
       const n = units.length;
       for (let k = 0; k < n; k++) {
