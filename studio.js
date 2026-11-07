@@ -29,7 +29,8 @@
     { id: 'bass', name: '贝斯', inst: 'bass', on: true, vol: .72, pan: 0, solo: false },
     { id: 'chord', name: '和弦伴奏', inst: 'piano', on: true, vol: .7, pan: 0, solo: false },
     { id: 'arp', name: '琶音', inst: 'guitar', on: false, vol: .58, pan: .06, solo: false },
-    { id: 'pad', name: '铺底', inst: 'strings', on: false, vol: .52, pan: 0, solo: false }
+    { id: 'pad', name: '铺底', inst: 'strings', on: false, vol: .52, pan: 0, solo: false },
+    { id: 'lead', name: '词格旋律', inst: 'lead', on: false, vol: .62, pan: 0, solo: false }
   ];
 
   const STYLES = [
@@ -203,7 +204,8 @@
     tracks: DEFAULT_TRACKS.map(t => ({ ...t })),
     favorites: [], history: [],
     sel: 0, onlyFav: false,
-    playing: false
+    playing: false,
+    cige: null
   };
 
   let engine = null;
@@ -211,6 +213,7 @@
   let uiTimers = [];
   let nextBarTime = 0;
   let playIndex = 0;
+  let wavBusy = false;
 
   const els = {
     styles: $('#styles'), combos: $('#combos'), instGrid: $('#instGrid'),
@@ -218,9 +221,10 @@
     btnPlay: $('#btnPlay'), posBar: $('#posBar'), posInfo: $('#posInfo'),
     bpmInput: $('#bpmInput'), bpbSelect: $('#bpbSelect'), btnVariation: $('#btnVariation'), loopInfo: $('#loopInfo'),
     trackRows: $('#trackRows'), mixInfo: $('#mixInfo'),
-    barGrid: $('#barGrid'), progInfo: $('#progInfo'),
+    barGrid: $('#barGrid'), progInfo: $('#progInfo'), cigeInfo: $('#cigeInfo'),
     btnAddBar: $('#btnAddBar'), btnDelBar: $('#btnDelBar'), btnClearBars: $('#btnClearBars'),
     btnSheet: $('#btnSheet'), btnMidi: $('#btnMidi'), btnJson: $('#btnJson'), btnSend: $('#btnSend'),
+    btnSyncCige: $('#btnSyncCige'), btnWav: $('#btnWav'),
     toast: $('#toast')
   };
 
@@ -230,8 +234,92 @@
     const i = c.indexOf('|');
     return { root: Number(c.slice(0, i)) || 0, qid: c.slice(i + 1) };
   };
+
+  /* 和弦名称（词格工程存的 "Am7" 等）→ 编曲台 root|qid */
+  function noteToPc(text) {
+    const m = /^([A-Ga-g])([#b♯♭]?)/.exec(text);
+    if (!m) return null;
+    const base = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1].toUpperCase()];
+    if (base == null) return null;
+    let pc = base;
+    if (m[2] === '#' || m[2] === '♯') pc += 1;
+    if (m[2] === 'b' || m[2] === '♭') pc -= 1;
+    return ((pc % 12) + 12) % 12;
+  }
+
+  function qualityFromName(rest) {
+    if (!rest) return '';
+    const s = rest.toLowerCase();
+    if (/sus2/.test(s)) return 'sus2';
+    if (/sus4|sus/.test(s)) return 'sus4';
+    if (/m7b5|ø|dim7|°7/.test(s)) return 'm7b5';
+    if (/dim|°/.test(s)) return 'dim';
+    if (/aug|\+/.test(s)) return 'aug';
+    if (/add9|add2|9/.test(s)) return 'add9';
+    if (/m7|min7/.test(s)) return 'm7';
+    if (/m6|min6/.test(s)) return 'm6';
+    if (/maj7|M7/.test(rest) || /major7/.test(s)) return 'maj7';
+    if (/m|min/.test(s)) return 'm';
+    if (/7/.test(s)) return '7';
+    if (/6/.test(s)) return '6';
+    return '';
+  }
+
+  function parseChordName(name) {
+    const raw = String(name || '').split('/')[0].trim();
+    if (!raw) return '';
+    const pc = noteToPc(raw);
+    if (pc == null) return '';
+    const rest = raw.slice(1).replace(/^[#b♯♭]/, '');
+    return `${pc}|${qualityFromName(rest)}`;
+  }
+
+  /* 歌词切分（与词格同一规则：中文按字，拉丁按词） */
+  const CJK = /[\u3400-\u9fff\uf900-\ufaff]/;
+  function splitUnits(text) {
+    const t = String(text || '').trim();
+    if (!t) return [];
+    const units = [];
+    let buf = '';
+    for (const ch of t) {
+      if (CJK.test(ch) || /\s/.test(ch)) {
+        if (buf) { units.push(buf); buf = ''; }
+        if (!/\s/.test(ch)) units.push(ch);
+      } else {
+        buf += ch;
+      }
+    }
+    if (buf) units.push(buf);
+    return units;
+  }
+
+  function smartJoin(cells) {
+    let out = '';
+    for (const raw of cells || []) {
+      const t = String(raw || '').trim();
+      if (!t) continue;
+      if (!out) { out = t; continue; }
+      const a = out[out.length - 1], b = t[0];
+      const latinA = /[A-Za-z0-9'’.,!?;:)\]]/.test(a);
+      const latinB = /[A-Za-z0-9'’(\[]/.test(b);
+      out += (latinA && latinB) ? ' ' + t : t;
+    }
+    return out;
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+
+  function barLyric(bar) {
+    if (!bar || !Array.isArray(bar.cells)) return '';
+    return smartJoin(bar.cells).trim();
+  }
   const trackById = id => state.tracks.find(t => t.id === id);
   const barDur = () => (60 / state.bpm) * state.bpb;
+  const meterText = () => (state.bpb === 6 ? '6/8' : `${state.bpb}/4`);
   const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.round(s % 60)).padStart(2, '0')}`;
   const chordName = (root, qid) => NOTES[root] + qualityOf(qid).suffix;
   const anySolo = () => state.tracks.some(t => t.solo);
@@ -250,9 +338,11 @@
   function save() {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
-        key: state.key, bpm: state.bpm, bpb: state.bpb, bars: state.bars,
+        key: state.key, bpm: state.bpm, bpb: state.bpb,
+        bars: state.bars.map(b => ({ chord: b.chord, section: b.section, cells: b.cells || null })),
         style: state.style, variation: state.variation, combo: state.combo,
-        tracks: state.tracks, favorites: state.favorites, history: state.history
+        tracks: state.tracks, favorites: state.favorites, history: state.history,
+        cige: state.cige
       }));
     } catch (e) { /* ignore */ }
   }
@@ -263,12 +353,15 @@
       if (!raw) return;
       const p = JSON.parse(raw);
       if (typeof p.bpm === 'number') state.bpm = Math.min(240, Math.max(40, p.bpm));
-      if ([2, 3, 4, 6].includes(p.bpb)) state.bpb = p.bpb;
+      if ([2, 3, 4, 6, 8].includes(p.bpb)) state.bpb = p.bpb;
       if (typeof p.key === 'number') state.key = p.key % 12;
       if (Array.isArray(p.bars) && p.bars.length) {
         state.bars = p.bars.map(b => ({
           chord: typeof b.chord === 'string' ? b.chord : '0|',
-          section: SECTIONS.includes(b.section) ? b.section : ''
+          section: typeof b.section === 'string' ? b.section.slice(0, 6) : '',
+          cells: Array.isArray(b.cells)
+            ? Array.from({ length: state.bpb }, (_, i) => String(b.cells[i] == null ? '' : b.cells[i]))
+            : null
         }));
       }
       if (STYLES.some(s => s.id === p.style)) state.style = p.style;
@@ -290,6 +383,9 @@
       }
       if (Array.isArray(p.favorites)) state.favorites = p.favorites.filter(id => COMBOS.some(c => c.id === id));
       if (Array.isArray(p.history)) state.history = p.history.filter(id => COMBOS.some(c => c.id === id)).slice(0, 4);
+      if (p.cige && typeof p.cige === 'object') {
+        state.cige = { audioName: String(p.cige.audioName || ''), at: Number(p.cige.at) || 0 };
+      }
     } catch (e) { /* ignore */ }
   }
 
@@ -320,6 +416,114 @@
     return chordName(root, qid);
   }
 
+  /* ── 词格工程联动 ── */
+  const CIGE_KEY = 'cige.project.v1';
+
+  function readCigeProject() {
+    try {
+      const raw = localStorage.getItem(CIGE_KEY);
+      if (!raw) return null;
+      const p = JSON.parse(raw);
+      if (!p || !Array.isArray(p.bars) || !p.bars.length) return null;
+      return p;
+    } catch (e) { return null; }
+  }
+
+  function cigeLabel() {
+    const lyricBars = state.bars.filter(b => barLyric(b)).length;
+    if (state.cige) {
+      const name = state.cige.audioName
+        ? state.cige.audioName.replace(/\.(mp3|wav|m4a|aac|flac|ogg)$/i, '')
+        : '词格工程';
+      return lyricBars ? `词格：${name} · ${lyricBars} 小节有词` : `词格：${name} · 无歌词`;
+    }
+    return readCigeProject() ? '检测到词格工程 · 点“同步词格”' : '未同步词格';
+  }
+
+  function syncFromCige(silent) {
+    const p = readCigeProject();
+    if (!p) {
+      if (!silent) toast('词格还没有工程：先在词格导入伴奏、填词');
+      return false;
+    }
+    const bpm = Number(p.bpm);
+    if (Number.isFinite(bpm)) state.bpm = Math.min(240, Math.max(40, Math.round(bpm)));
+    const bpb = Number(p.beatsPerBar);
+    if ([2, 3, 4, 6, 8].includes(bpb)) state.bpb = bpb;
+    const secMap = new Map();
+    for (const s of p.sections || []) {
+      if (s && typeof s.bar === 'number' && typeof s.name === 'string') secMap.set(s.bar, s.name.slice(0, 6));
+    }
+    state.bars = p.bars.map((b, i) => {
+      const cells = Array.from({ length: state.bpb }, (_, k) =>
+        String((b && b.cells && b.cells[k]) == null ? '' : b.cells[k]));
+      return {
+        chord: parseChordName(b && b.chord) || '0|',
+        section: secMap.get(i) || '',
+        cells
+      };
+    });
+    state.sel = Math.min(state.sel, state.bars.length - 1);
+    state.cige = { audioName: String(p.audioName || '词格工程'), at: Date.now() };
+    const lead = trackById('lead');
+    const hasLyric = state.bars.some(b => barLyric(b));
+    if (lead && hasLyric) lead.on = true;
+    if (state.playing) stopPlay();
+    els.bpmInput.value = state.bpm;
+    els.bpbSelect.value = String(state.bpb);
+    renderAll();
+    if (!silent) {
+      toast(hasLyric
+        ? `已同步 ${state.bars.length} 小节 · 词格旋律已生成`
+        : `已同步 ${state.bars.length} 小节（词格暂无歌词）`);
+    }
+    return true;
+  }
+
+  /* ── 歌词 → 旋律事件 ── */
+  const MELODY_CONTOURS = [
+    [0, 1, 2, 1, 0, -1, 0, 1],
+    [0, -1, -2, -1, 0, 1, 2, 1],
+    [0, 1, 0, -1, 0, 1, 2, 2],
+    [0, 2, 1, 3, 2, 1, 0, 1]
+  ];
+
+  function melodyPool(root, qid) {
+    const iv = qualityOf(qid).intervals;
+    const base = 60 + ((root + 12) % 12);
+    const pool = [];
+    for (let oct = 0; oct < 2; oct++) {
+      for (const x of iv) pool.push(base + x + oct * 12);
+    }
+    return pool.sort((a, b) => a - b);
+  }
+
+  function lyricEvents(c, bar) {
+    const out = [];
+    if (!Array.isArray(bar.cells) || !bar.cells.some(x => String(x || '').trim())) return out;
+    const pool = melodyPool(c.root, c.qid);
+    const contour = MELODY_CONTOURS[(c.variation + c.barIndex) % MELODY_CONTOURS.length];
+    const chorus = c.lift > 1;
+    const center = Math.min(pool.length - 2, 1 + (c.barIndex % 2) + (chorus ? 1 : 0));
+    let syl = 0;
+    for (let beat = 0; beat < bar.cells.length; beat++) {
+      const units = splitUnits(bar.cells[beat]);
+      const n = units.length;
+      for (let k = 0; k < n; k++) {
+        const step = beat * 4 + (n === 1 ? 0 : (k * 4) / n);
+        const dur = n === 1 ? 3.6 : Math.max(.8, (4 / n) * .92);
+        const idx = Math.max(0, Math.min(pool.length - 1, center + contour[syl % contour.length]));
+        out.push({
+          track: 'lead', step, midi: Math.min(88, pool[idx]), dur,
+          gain: (.7 + (chorus ? .08 : 0)) * c.lift,
+          lyric: units[k]
+        });
+        syl++;
+      }
+    }
+    return out;
+  }
+
   /* ── 编曲上下文与事件生成 ── */
   function arrangeBar(bar, barIndex) {
     const out = [];
@@ -337,25 +541,28 @@
     };
     const style = STYLES.find(s => s.id === state.style) || STYLES[0];
     style.gen(out, c);
+    out.push(...lyricEvents(c, bar));
     return out;
   }
 
-  function scheduleBar(bar, barIndex, at) {
-    const stepDur = (60 / state.bpm) / 4;
-    const evs = arrangeBar(bar, barIndex);
+  function scheduleEvents(eng, evs, at, stepDur) {
     for (const e of evs) {
       if (e.track === 'drums') {
         const t = trackById('drums');
         if (!audible(t)) continue;
-        engine.playDrum(e.drum, at + e.step * stepDur, { gain: e.gain * t.vol, pan: t.pan });
+        eng.playDrum(e.drum, at + e.step * stepDur, { gain: e.gain * t.vol, pan: t.pan });
         continue;
       }
       const t = trackById(e.track);
       if (!audible(t)) continue;
-      engine.playNote(t.inst, e.midi, at + e.step * stepDur, e.dur * stepDur, {
+      eng.playNote(t.inst, e.midi, at + e.step * stepDur, e.dur * stepDur, {
         gain: e.gain * t.vol, pan: t.pan
       });
     }
+  }
+
+  function scheduleBar(bar, barIndex, at) {
+    scheduleEvents(engine, arrangeBar(bar, barIndex), at, (60 / state.bpm) / 4);
   }
 
   /* ── 播放 ── */
@@ -488,19 +695,25 @@
   }
 
   function renderBars() {
-    els.barGrid.innerHTML = state.bars.map((bar, i) => `
-      <div class="bar${i === state.sel ? ' on' : ''}" data-i="${i}">
+    els.barGrid.innerHTML = state.bars.map((bar, i) => {
+      const lyric = barLyric(bar);
+      return `
+      <div class="bar${i === state.sel ? ' on' : ''}${lyric ? ' has-lyric' : ''}" data-i="${i}">
         <div class="bar-head">
           <span class="bar-no">${String(i + 1).padStart(2, '0')}</span>
-          <input class="bar-sec" data-i="${i}" value="${bar.section}" placeholder="段落" list="sections">
+          <input class="bar-sec" data-i="${i}" value="${escapeHtml(bar.section)}" placeholder="段落" list="sections">
         </div>
         <select class="bar-chord" data-i="${i}">${barOptions(bar.chord)}</select>
         <div class="bar-func">${funcLabel(bar.chord)}</div>
-      </div>`).join('');
+        ${lyric ? `<div class="bar-lyric" title="${escapeHtml(lyric)}">${escapeHtml(lyric)}</div>` : ''}
+      </div>`;
+    }).join('');
     const style = STYLES.find(s => s.id === state.style) || STYLES[0];
     const combo = COMBOS.find(c => c.id === state.combo);
-    els.progInfo.textContent = `${state.bars.length} 小节 · ${state.bpb}/4 · ${style.name}${combo ? ' · ' + combo.name : ''}`;
+    els.progInfo.textContent = `${state.bars.length} 小节 · ${meterText()} · ${style.name}${combo ? ' · ' + combo.name : ''}`;
     els.loopInfo.textContent = `循环 ${fmt(state.bars.length * barDur())}`;
+    if (els.cigeInfo) els.cigeInfo.textContent = cigeLabel();
+    if (els.btnSyncCige) els.btnSyncCige.classList.toggle('is-hot', !state.cige && !!readCigeProject());
     updatePos(Math.min(state.sel, state.bars.length - 1));
     save();
   }
@@ -513,9 +726,20 @@
   }
 
   /* ── 试听 ── */
-  function previewBar(bar, instId) {
-    if (!bar || !bar.chord) return;
+  function previewBar(bar, instId, trackId) {
+    if (!bar) return;
     engineReady();
+    if (trackId === 'lead') {
+      const evs = arrangeBar(bar, state.sel).filter(e => e.track === 'lead');
+      if (!evs.length) { toast('这一小节还没有词：去词格填词后点“同步词格”'); return; }
+      const t0 = engine.now() + .04;
+      const stepDur = (60 / state.bpm) / 4;
+      for (const e of evs) {
+        engine.playNote(instId, e.midi, t0 + e.step * stepDur, e.dur * stepDur, { gain: e.gain });
+      }
+      return;
+    }
+    if (!bar.chord) return;
     const { root, qid } = parseChord(bar.chord);
     const iv = qualityOf(qid).intervals;
     if (instId === 'drums') {
@@ -550,11 +774,12 @@
     const combo = COMBOS.find(c => c.id === state.combo);
     const lines = state.bars.map((b, i) => {
       const sec = b.section ? `【${b.section}】` : '';
-      return `${String(i + 1).padStart(3, '0')}  ${barName(b).padEnd(8, ' ')}  ${funcLabel(b.chord).padEnd(10, ' ')} ${sec}`;
+      const lyric = barLyric(b);
+      return `${String(i + 1).padStart(3, '0')}  ${barName(b).padEnd(8, ' ')}  ${funcLabel(b.chord).padEnd(10, ' ')} ${sec}${lyric ? '  ' + lyric : ''}`;
     });
     return [
       '编曲台 · 和弦功能谱',
-      `调性：${NOTES[state.key]}　BPM：${state.bpm}　拍号：${state.bpb}/4`,
+      `调性：${NOTES[state.key]}　BPM：${state.bpm}　拍号：${meterText()}`,
       `风格：${style.name}${combo ? '　伴奏组合：' + combo.name : ''}`,
       '',
       '小节  和弦       级数/功能    段落',
@@ -619,7 +844,8 @@
     { id: 'bass', name: '贝斯', channel: 1, program: 33 },
     { id: 'chord', name: '和弦伴奏', channel: 2, program: 0 },
     { id: 'arp', name: '琶音', channel: 3, program: 25 },
-    { id: 'pad', name: '铺底', channel: 4, program: 48 }
+    { id: 'pad', name: '铺底', channel: 4, program: 48 },
+    { id: 'lead', name: '词格旋律', channel: 5, program: 81 }
   ];
   const DRUM_MIDI = { kick: 36, snare: 38, hat: 42, openhat: 46, clap: 39, rim: 37 };
 
@@ -655,7 +881,7 @@
       const evs = arrangeBar(state.bars[i], i);
       for (const e of evs) {
         if (!enabled.some(t => t.id === e.track)) continue;
-        const tick = i * barTicks + e.step * stepTicks;
+        const tick = Math.round(i * barTicks + e.step * stepTicks);
         if (e.track === 'drums') {
           notesByTrack.drums.push({
             tick, midi: DRUM_MIDI[e.drum] || 36,
@@ -700,6 +926,28 @@
       trackChunks.push(chunk('MTrk', data));
     }
 
+    /* 歌词元事件轨（FF 05），DAW 里可直接显示歌词 */
+    const lyricRows = [];
+    state.bars.forEach((bar, i) => {
+      (bar.cells || []).forEach((cell, beat) => {
+        const text = String(cell || '').trim();
+        if (text) lyricRows.push({ tick: i * barTicks + beat * stepTicks, text });
+      });
+    });
+    if (lyricRows.length) {
+      const data = [];
+      const nb = utf8Bytes('歌词');
+      data.push(0x00, 0xFF, 0x03, nb.length, ...nb);
+      let last = 0;
+      for (const row of lyricRows) {
+        const lb = utf8Bytes(row.text);
+        data.push(...vlq(row.tick - last), 0xFF, 0x05, lb.length, ...lb);
+        last = row.tick;
+      }
+      data.push(0x00, 0xFF, 0x2F, 0x00);
+      trackChunks.push(chunk('MTrk', data));
+    }
+
     const headerBytes = [
       0x4D, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06,
       0x00, 0x01, 0x00, trackChunks.length & 255, (division >> 8) & 255, division & 255
@@ -711,7 +959,10 @@
   function exportMidi() {
     const bytes = buildMidi();
     download(`词格_编曲_${NOTES[state.key]}.mid`, new Blob([bytes], { type: 'audio/midi' }));
-    toast('MIDI 已导出（含鼓/贝斯/和弦/琶音/铺底分轨）');
+    const hasLyric = state.bars.some(b => barLyric(b));
+    toast(hasLyric
+      ? 'MIDI 已导出（6 轨 + 歌词轨）'
+      : 'MIDI 已导出（鼓/贝斯/和弦/琶音/铺底/旋律分轨）');
   }
 
   function downloadJson() {
@@ -723,6 +974,69 @@
       chords: state.bars.map(b => barName(b))
     };
     download(`词格_编曲工程_${NOTES[state.key]}.json`, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  }
+
+  /* ── 离线渲染 WAV（本地并轨，不经过任何服务器） ── */
+  function encodeWav(buffer) {
+    const ch = buffer.numberOfChannels;
+    const len = buffer.length;
+    const bytes = new Uint8Array(44 + len * ch * 2);
+    const dv = new DataView(bytes.buffer);
+    const str = (off, s) => { for (let i = 0; i < s.length; i++) bytes[off + i] = s.charCodeAt(i); };
+    str(0, 'RIFF');
+    dv.setUint32(4, 36 + len * ch * 2, true);
+    str(8, 'WAVE');
+    str(12, 'fmt ');
+    dv.setUint32(16, 16, true);
+    dv.setUint16(20, 1, true);
+    dv.setUint16(22, ch, true);
+    dv.setUint32(24, buffer.sampleRate, true);
+    dv.setUint32(28, buffer.sampleRate * ch * 2, true);
+    dv.setUint16(32, ch * 2, true);
+    dv.setUint16(34, 16, true);
+    str(36, 'data');
+    dv.setUint32(40, len * ch * 2, true);
+    const chans = [];
+    for (let c = 0; c < ch; c++) chans.push(buffer.getChannelData(c));
+    let off = 44;
+    for (let i = 0; i < len; i++) {
+      for (let c = 0; c < ch; c++) {
+        const s = Math.max(-1, Math.min(1, chans[c][i]));
+        dv.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        off += 2;
+      }
+    }
+    return bytes;
+  }
+
+  async function exportWav() {
+    if (wavBusy) return;
+    if (!state.bars.length) { toast('还没有小节'); return; }
+    const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!Offline) { toast('当前浏览器不支持离线渲染'); return; }
+    wavBusy = true;
+    if (els.btnWav) els.btnWav.disabled = true;
+    toast('正在本地并轨渲染 WAV…');
+    try {
+      const sr = 44100;
+      const barSec = barDur();
+      const total = state.bars.length * barSec + .6;
+      const off = new Offline(2, Math.ceil(total * sr), sr);
+      const eng = window.CigeSynth.createEngine({ ctx: off, master: .33 });
+      const stepDur = (60 / state.bpm) / 4;
+      for (let i = 0; i < state.bars.length; i++) {
+        scheduleEvents(eng, arrangeBar(state.bars[i], i), i * barSec, stepDur);
+      }
+      const buf = await off.startRendering();
+      const bytes = encodeWav(buf);
+      download(`词格_编曲_${NOTES[state.key]}.wav`, new Blob([bytes], { type: 'audio/wav' }));
+      toast(`WAV 已导出 · ${(bytes.length / 1048576).toFixed(1)} MB`);
+    } catch (err) {
+      toast('WAV 渲染失败：' + ((err && err.message) || err));
+    } finally {
+      wavBusy = false;
+      if (els.btnWav) els.btnWav.disabled = false;
+    }
   }
 
   /* ── 事件 ── */
@@ -801,7 +1115,7 @@
       renderTracks();
       save();
     } else if (e.target.closest('.t-preview')) {
-      previewBar(state.bars[state.sel], t.inst);
+      previewBar(state.bars[state.sel], t.inst, t.id);
     }
   });
 
@@ -882,6 +1196,8 @@
   els.btnMidi.addEventListener('click', exportMidi);
   els.btnJson.addEventListener('click', downloadJson);
   els.btnSend.addEventListener('click', sendToCige);
+  if (els.btnSyncCige) els.btnSyncCige.addEventListener('click', () => syncFromCige(false));
+  if (els.btnWav) els.btnWav.addEventListener('click', exportWav);
 
   document.addEventListener('keydown', e => {
     if (e.target.matches('select,input,textarea')) return;

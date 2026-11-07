@@ -126,15 +126,21 @@
   }
 
   function createEngine(opts) {
+    opts = opts || {};
     const AC = global.AudioContext || global.webkitAudioContext;
-    if (!AC) throw new Error('当前浏览器不支持 WebAudio');
-    const ctx = new AC();
+    const Offline = global.OfflineAudioContext || global.webkitOfflineAudioContext;
+    const isOffline = !!(Offline && opts.ctx && opts.ctx instanceof Offline);
+    if (!opts.ctx && !AC) throw new Error('当前浏览器不支持 WebAudio');
+    const ctx = opts.ctx || new AC();
     const master = ctx.createGain();
-    master.gain.value = (opts && opts.master) || .35;
+    master.gain.value = opts.master == null ? .35 : opts.master;
     master.connect(ctx.destination);
 
     function resume() {
-      if (ctx.state === 'suspended') return ctx.resume().catch(() => {});
+      if (isOffline) return Promise.resolve();
+      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+        return ctx.resume().catch(() => {});
+      }
       return Promise.resolve();
     }
 

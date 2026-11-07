@@ -20,6 +20,8 @@
     <span class="toast" id="toast"></span>
     <a class="btn btn-ghost" href="harmony.html" target="_blank" rel="noopener">和弦台</a>
     <a class="btn btn-ghost" href="learn.html" target="_blank" rel="noopener">学习</a>
+    <button class="btn btn-ghost" id="btnSyncCige">同步词格</button>
+    <button class="btn btn-ghost" id="btnWav">导出 WAV</button>
     <button class="btn btn-ghost" id="btnSheet">和弦谱</button>
     <button class="btn btn-ghost" id="btnMidi">导出 MIDI</button>
     <button class="btn btn-ghost" id="btnJson">工程 JSON</button>
@@ -64,6 +66,7 @@
           <option value="3">3/4</option>
           <option value="4" selected>4/4</option>
           <option value="6">6/8</option>
+          <option value="8">8 拍</option>
         </select>
       </label>
       <button class="mini" id="btnVariation">换织体</button>
@@ -84,6 +87,7 @@
       <div class="bars-head">
         <h2>和弦进行</h2>
         <span class="hint" id="progInfo">—</span>
+        <span class="hint" id="cigeInfo">未同步词格</span>
         <div class="spacer"></div>
         <button class="mini" id="btnAddBar">＋ 小节</button>
         <button class="mini" id="btnDelBar">－ 末尾</button>
@@ -91,7 +95,7 @@
       </div>
       <div class="bar-grid" id="barGrid"></div>
       <div class="bars-foot">
-        <span class="hint">每小节和弦决定所有轨道的演奏音高；段落决定织体强弱。</span>
+        <span class="hint">每小节和弦决定所有轨道的演奏音高；段落决定织体强弱；同步词格后自动生成第 6 轨“词格旋律”。</span>
         <div class="spacer"></div>
         <a class="link" href="harmony.html" target="_blank" rel="noopener">打开和弦台做更细的和声编辑 →</a>
       </div>
