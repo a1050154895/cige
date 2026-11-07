@@ -997,6 +997,16 @@
     if (e.data && e.data.type === 'cige:chords') applyHarmony(e.data);
   });
 
+  // Safari 等浏览器可能拿不到 opener，用 storage 事件做跨窗口兜底
+  window.addEventListener('storage', e => {
+    if (e.key !== HARMONY_KEY || !e.newValue) return;
+    try {
+      const p = JSON.parse(e.newValue);
+      localStorage.removeItem(HARMONY_KEY);
+      if (p) applyHarmony(p);
+    } catch (err) { /* ignore */ }
+  });
+
   els.fileInput.addEventListener('change', e => {
     const f = e.target.files && e.target.files[0];
     e.target.value = '';
