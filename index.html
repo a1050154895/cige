@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>词格 · 伴奏卡点作词器</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">词</div>
+    <div class="brand-text">
+      <h1>词格</h1>
+      <p>伴奏卡点作词器</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span class="save-hint" id="saveHint"></span>
+    <button class="btn btn-ghost" id="btnImport">导入伴奏</button>
+    <button class="btn btn-primary" id="btnExport" disabled>导出歌词</button>
+  </div>
+</header>
+
+<main class="shell">
+
+  <section class="empty card" id="emptyState">
+    <div class="empty-visual" aria-hidden="true">
+      <span style="--h:34%"></span><span style="--h:58%"></span><span style="--h:82%"></span>
+      <span style="--h:46%"></span><span style="--h:96%"></span><span style="--h:62%"></span>
+      <span style="--h:40%"></span><span style="--h:74%"></span><span style="--h:52%"></span>
+      <span style="--h:88%"></span><span style="--h:36%"></span><span style="--h:60%"></span>
+    </div>
+    <h2>把伴奏放进来，让每一句都落在拍上</h2>
+    <p class="lead">导入伴奏自动解析 BPM 与节拍网格，逐拍填词，实时音节匹配，一键导出 LRC。</p>
+    <button class="btn btn-primary btn-lg" id="btnEmptyImport">选择伴奏文件</button>
+    <p class="hint">支持 MP3 · WAV · M4A · OGG · FLAC</p>
+
+    <div class="steps">
+      <div class="step">
+        <span>1</span>
+        <p>导入伴奏<em>选择 MP3 / WAV 文件</em></p>
+      </div>
+      <div class="step">
+        <span>2</span>
+        <p>校准节拍<em>自动解析，可手动打点修正</em></p>
+      </div>
+      <div class="step">
+        <span>3</span>
+        <p>卡点填词<em>逐拍对齐，实时音节匹配</em></p>
+      </div>
+    </div>
+  </section>
+
+  <div id="studio" hidden>
+
+    <section class="card track">
+      <div class="track-head">
+        <div class="track-meta">
+          <span class="live-dot"></span>
+          <span class="track-name" id="trackName">—</span>
+          <span class="track-info muted" id="trackInfo"></span>
+        </div>
+        <div class="track-tools">
+          <button class="mini" id="btnZoomOut" title="缩小">−</button>
+          <button class="mini" id="btnZoomIn" title="放大">+</button>
+          <button class="mini" id="btnZoomAll" title="显示全部">全</button>
+          <button class="mini" id="btnCtxChange">换伴奏</button>
+        </div>
+      </div>
+
+      <div class="wave-wrap" id="waveWrap">
+        <canvas id="wave"></canvas>
+        <div class="wave-tip">点击波形跳转 · 滚轮缩放 · 拖动平移</div>
+      </div>
+
+      <div class="transport">
+        <button class="play" id="btnPlay" aria-label="播放"><span class="ico-play"></span></button>
+        <div class="time"><span id="timeNow">00:00.00</span><span class="sep">/</span><span id="timeDur" class="muted">00:00.00</span></div>
+        <div class="beat-readout">第 <b id="barNow">–</b> 小节 · 第 <b id="beatNow">–</b> 拍</div>
+        <div class="spacer"></div>
+        <div class="bpm-chip"><b id="bpmChip">120.00</b> BPM</div>
+      </div>
+    </section>
+
+    <section class="card panel">
+      <div class="panel-head">
+        <h2>节拍校准</h2>
+        <div class="conf">
+          <span class="muted">自动解析</span>
+          <div class="conf-bar"><i id="confFill"></i></div>
+          <span class="conf-label" id="confLabel">—</span>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost" id="btnReanalyze">重新解析</button>
+      </div>
+
+      <div class="panel-body">
+        <label class="field">
+          <span>BPM</span>
+          <div class="input-row">
+            <input id="bpmInput" type="number" min="30" max="320" step="0.01" value="120">
+            <button class="mini" id="btnHalf" title="速度减半">÷2</button>
+            <button class="mini" id="btnDouble" title="速度加倍">×2</button>
+          </div>
+        </label>
+
+        <label class="field">
+          <span>每小节拍数</span>
+          <select id="bpbSelect">
+            <option value="2">2 / 4</option>
+            <option value="3">3 / 4</option>
+            <option value="4" selected>4 / 4</option>
+            <option value="6">6 / 4</option>
+            <option value="8">8 / 4</option>
+          </select>
+        </label>
+
+        <div class="field">
+          <span>首拍时间（秒）</span>
+          <div class="input-row">
+            <input id="offsetInput" type="number" step="0.001" value="0">
+            <button class="mini" data-nudge="-0.05">−50</button>
+            <button class="mini" data-nudge="-0.01">−10</button>
+            <button class="mini" data-nudge="0.01">+10</button>
+            <button class="mini" data-nudge="0.05">+50</button>
+          </div>
+          <div class="input-row">
+            <button class="mini" data-beat="-1">整拍 −1</button>
+            <button class="mini" data-beat="1">整拍 +1</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span>手动校正</span>
+          <div class="input-row">
+            <button class="btn btn-ghost" id="btnTap">打点测速</button>
+            <button class="btn btn-ghost" id="btnAlign">此刻对齐首拍</button>
+          </div>
+          <p class="hint" id="tapHint">播放伴奏，跟着重拍连点「打点测速」</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card lyrics">
+      <div class="panel-head">
+        <h2>歌词卡点</h2>
+        <div class="legend">
+          <span class="dot dot-beat"></span>当前拍
+          <span class="dot dot-dense"></span>音节过密
+        </div>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost" id="btnAddSection">+ 段落</button>
+      </div>
+
+      <div class="grid-scroll" id="gridScroll">
+        <div class="grid" id="grid"></div>
+      </div>
+
+      <div class="grid-foot">
+        <span class="muted" id="gridInfo">—</span>
+        <div class="spacer"></div>
+        <span class="muted kbd-hint">↑ ↓ ← → 切换格子 · Space 播放 / 暂停</span>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<input type="file" id="fileInput" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac" hidden>
+
+<div class="drop-overlay" id="dropOverlay"><div>松开以导入伴奏</div></div>
+
+<dialog id="exportDialog" class="dialog">
+  <div class="dialog-inner">
+    <header class="dialog-head">
+      <h3>导出歌词</h3>
+      <button class="icon-btn" id="btnCloseDialog" aria-label="关闭">✕</button>
+    </header>
+    <div class="tabs" id="exportTabs">
+      <button class="tab active" data-format="lrc">LRC 逐行</button>
+      <button class="tab" data-format="elrc">逐字 LRC</button>
+      <button class="tab" data-format="txt">纯文本</button>
+      <button class="tab" data-format="json">工程 JSON</button>
+    </div>
+    <textarea id="exportText" spellcheck="false" readonly></textarea>
+    <footer class="dialog-foot">
+      <span class="muted" id="exportInfo"></span>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="btnCopy">复制</button>
+      <button class="btn btn-primary" id="btnDownload">下载文件</button>
+    </footer>
+  </div>
+</dialog>
+
+<div class="loading" id="loading" hidden>
+  <div class="loading-inner">
+    <div class="spinner"></div>
+    <p id="loadingText">正在解析伴奏…</p>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
