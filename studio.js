@@ -582,10 +582,14 @@
         chordAt(out, c, 'chord', 0, S, .38, 48);
         break;
       }
-      case 'bass':
-      case 'synthbass': {
+      case 'bass': {
         E(out, 'chord', 0, bass, 3.4, .55 * c.lift);
         if (S >= 8) E(out, 'chord', 8, bass + 7, 3.4, .5 * c.lift);
+        break;
+      }
+      case 'synthbass': {
+        E(out, 'chord', 0, bass, 3.4, .6 * c.lift);
+        if (S >= 8) E(out, 'chord', 8, bass + 12, 3.4, .55 * c.lift);
         break;
       }
       default: chordAt(out, c, 'chord', 0, 3.3, .5);
@@ -886,10 +890,10 @@
         case 'guitar': return '扫弦';
         case 'eguitar': return 'Power强切';
         case 'pluck': return '分解琶音';
-        case 'strings': return '长音';
-        case 'pad': return '铺底';
-        case 'bass':
-        case 'synthbass': return '低音和弦';
+        case 'strings': return '弦乐长音';
+        case 'pad': return '气垫铺底';
+        case 'bass': return '低音和弦';
+        case 'synthbass': return '低音脉冲';
         default: return '柱式';
       }
     }
@@ -906,9 +910,14 @@
     }
     if (role === 'pad') {
       if (inst === 'organ') return '持续音';
+      if (inst === 'strings') return '弦乐长音';
+      if (inst === 'pad') return '气垫铺底';
       if (inst === 'piano' || inst === 'epiano' || inst === 'guitar' || inst === 'eguitar' || inst === 'pluck') return '软和弦';
       return '长音铺底';
     }
+    if (inst === 'strings' || inst === 'pad' || inst === 'organ') return '长音乐句';
+    if (inst === 'guitar' || inst === 'eguitar') return '八分乐句';
+    if (inst === 'piano' || inst === 'epiano') return '切分短句';
     return '旋律/Riff';
   }
 
