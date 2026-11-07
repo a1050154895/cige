@@ -33,134 +33,14 @@
     { id: 'lead', name: '词格旋律', inst: 'lead', on: false, vol: .62, pan: 0, solo: false }
   ];
 
+  // 风格只决定律动取向；具体演奏法由各轨道乐器决定（见 乐器演奏法引擎）
   const STYLES = [
-    {
-      id: 'pop', name: '流行', desc: '钢琴柱式 · 稳定四拍',
-      gen(out, c) {
-        const N = (t, s, m, d, g) => out.push({ track: t, step: s, midi: m, dur: d, gain: g });
-        const D = (k, s, g) => out.push({ track: 'drums', drum: k, step: s, gain: g });
-        for (let b = 0; b < c.bpb; b++) {
-          const s = b * 4;
-          D(b % 2 === 0 ? 'kick' : 'snare', s, .95 * c.lift);
-          for (const m of c.chordMidis) N('chord', s, m, 3.3, .62 * c.lift);
-          N('bass', s, c.bassMidi, 3.6, .82 * c.lift);
-          D('hat', s, .5);
-          if (b + 1 < c.bpb || c.bpb === 1) D('hat', s + 2, .45);
-        }
-        if (c.variation % 2 === 1) {
-          for (const m of c.chordMidis) N('chord', 5, m, 2.2, .38 * c.lift);
-        }
-      }
-    },
-    {
-      id: 'rock', name: '摇滚', desc: '电吉他八分 · 强拍推进',
-      gen(out, c) {
-        const N = (t, s, m, d, g) => out.push({ track: t, step: s, midi: m, dur: d, gain: g });
-        const D = (k, s, g) => out.push({ track: 'drums', drum: k, step: s, gain: g });
-        for (let b = 0; b < c.bpb; b++) {
-          const s = b * 4;
-          D(b % 2 === 0 ? 'kick' : 'snare', s, 1);
-          D('hat', s, .45); D('hat', s + 2, .5);
-        }
-        for (let s = 0; s < c.steps; s += 2) {
-          for (const m of c.chordMidis) N('chord', s, m, 1.6, .52 * c.lift);
-          N('bass', s, c.bassMidi, 1.7, .8 * c.lift);
-          if (s % 4 === 3) D('hat', s, .35);
-        }
-      }
-    },
-    {
-      id: 'folk', name: '民谣', desc: '木吉他分解 · 轻鼓',
-      gen(out, c) {
-        const N = (t, s, m, d, g) => out.push({ track: t, step: s, midi: m, dur: d, gain: g });
-        const D = (k, s, g) => out.push({ track: 'drums', drum: k, step: s, gain: g });
-        D('kick', 0, .7);
-        if (c.bpb >= 3) D('kick', 8, .65);
-        if (c.bpb >= 2) D('snare', 4, .36 * c.lift);
-        if (c.bpb >= 4) D('snare', 12, .38 * c.lift);
-        for (let s = 0; s < c.steps; s += 4) D('hat', s, .22);
-        N('bass', 0, c.bassMidi, 6, .72 * c.lift);
-        if (c.steps >= 16) N('bass', 8, c.bassMidi, 6, .66 * c.lift);
-        // 和弦伴奏：两拍一次软和弦
-        for (let s = 0; s < c.steps; s += 8) {
-          for (const m of c.chordMidis) N('chord', s, m, 6.5, .4 * c.lift);
-        }
-        // 琶音：八分分解
-        const seq = c.chordMidis.slice();
-        const upper = seq.map(m => m + 12);
-        const full = seq.concat(upper);
-        for (let s = 0, k = c.variation % full.length; s < c.steps; s += 2, k++) {
-          N('arp', s, full[k % full.length], 2.6, .7 * c.lift);
-        }
-      }
-    },
-    {
-      id: 'edm', name: '电子', desc: '四踩 · 合成器 · 16 分琶音',
-      gen(out, c) {
-        const N = (t, s, m, d, g) => out.push({ track: t, step: s, midi: m, dur: d, gain: g });
-        const D = (k, s, g) => out.push({ track: 'drums', drum: k, step: s, gain: g });
-        for (let b = 0; b < c.bpb; b++) {
-          const s = b * 4;
-          D('kick', s, 1);
-          if (b % 2 === 1) D('clap', s, .8 * c.lift);
-          for (let k = 0; k < 4; k++) D('hat', s + k, .32);
-          if (b === c.bpb - 1) D('openhat', s + 2, .5);
-        }
-        for (let s = 0; s < c.steps; s += 2) {
-          N('bass', s, c.bassMidi, 1.8, .82 * c.lift);
-        }
-        for (let b = 0; b < c.bpb; b++) {
-          for (const m of c.chordMidis) N('chord', b * 4, m, 1.6, .52 * c.lift);
-        }
-        const full = c.chordMidis.concat(c.chordMidis.map(m => m + 12));
-        for (let s = 0, k = c.variation % full.length; s < c.steps; s++, k++) {
-          N('arp', s, full[k % full.length], 1, .5 * c.lift);
-        }
-      }
-    },
-    {
-      id: 'jazz', name: '爵士', desc: '走贝斯 · 七和弦 · Swing 感',
-      gen(out, c) {
-        const N = (t, s, m, d, g) => out.push({ track: t, step: s, midi: m, dur: d, gain: g });
-        const D = (k, s, g) => out.push({ track: 'drums', drum: k, step: s, gain: g });
-        for (let s = 0; s < c.steps; s += 2) D('hat', s, s % 4 === 0 ? .55 : .42);
-        for (let b = 0; b < c.bpb; b++) {
-          const s = b * 4;
-          if (b % 2 === 0) D('kick', s, .55);
-          else D('snare', s, .35);
-        }
-        const walk = [0, c.tones[1] == null ? 4 : c.tones[1], c.tones[2] == null ? 7 : c.tones[2], c.tones[3] == null ? 10 : c.tones[3]];
-        for (let b = 0; b < c.bpb; b++) {
-          N('bass', b * 4, 36 + c.root + walk[b % 4], 3.6, .82 * c.lift);
-          for (const m of c.chordMidis) N('chord', b * 4, m, 3.8, .58 * c.lift);
-        }
-        if (c.variation % 3 === 1) {
-          for (const m of c.chordMidis) N('chord', 6, m, 2, .36 * c.lift);
-        }
-      }
-    },
-    {
-      id: 'ballad', name: '抒情', desc: '铺底和弦 · 慢歌呼吸',
-      gen(out, c) {
-        const N = (t, s, m, d, g) => out.push({ track: t, step: s, midi: m, dur: d, gain: g });
-        const D = (k, s, g) => out.push({ track: 'drums', drum: k, step: s, gain: g });
-        D('kick', 0, .6);
-        if (c.steps >= 12) D('kick', 8, .45);
-        if (c.bpb >= 2) D('snare', 4, .28 * c.lift);
-        if (c.bpb >= 4) D('snare', 12, .3 * c.lift);
-        for (let s = 0; s < c.steps; s += 4) D('hat', s, .18);
-        N('bass', 0, c.bassMidi, c.steps / 2, .68);
-        if (c.steps >= 12) N('bass', c.steps / 2, c.bassMidi, c.steps / 2, .6);
-        const half = Math.floor(c.steps / 2);
-        for (const m of c.chordMidis) {
-          N('chord', 0, m, half, .55 * c.lift);
-          if (half > 0) N('chord', half, m, half, .5 * c.lift);
-        }
-        for (let k = 0; k < c.chordMidis.length; k += 2) {
-          N('pad', 0, c.chordMidis[k] + 5, c.steps, .55 * c.lift);
-        }
-      }
-    }
+    { id: 'pop', name: '流行', desc: '钢琴柱式 · 木吉他扫弦 · 稳定四拍' },
+    { id: 'rock', name: '摇滚', desc: '电吉他强切 · 贝斯推进 · 硬朗鼓点' },
+    { id: 'folk', name: '民谣', desc: '木吉他扫弦/指弹 · 轻鼓 · 呼吸感' },
+    { id: 'edm', name: '电子', desc: '四踩 · 合成贝斯 · 16 分琶音' },
+    { id: 'jazz', name: '爵士', desc: '走贝斯 · 切分 Comping · Swing 鼓点' },
+    { id: 'ballad', name: '抒情', desc: '长音铺底 · 慢歌呼吸 · 稀疏鼓点' }
   ];
 
   const COMBOS = [
@@ -524,24 +404,356 @@
     return out;
   }
 
+  /* ── 乐器演奏法引擎 ───────────────────────────────────────────
+     不是所有轨道共用同一套节奏，而是按「角色 × 乐器 × 风格」生成：
+     钢琴=左手低音+右手柱式，电钢=切分 Comping，管风琴=持续音+脚键盘，
+     木吉他=扫弦/指弹，电吉他=强切 power chord，弦乐/Pad=长音铺底，
+     贝斯=根音五度/走贝斯/八分驱动，拨弦=分解琶音，主音=旋律短句。
+  ──────────────────────────────────────────────────────────── */
+  const E = (out, track, step, midi, dur, gain) => {
+    out.push({
+      track, step: +Math.max(0, step).toFixed(2), midi: Math.round(midi),
+      dur: Math.max(.35, +dur.toFixed(2)), gain: +gain.toFixed(3)
+    });
+  };
+  const K = (out, drum, step, gain) => {
+    out.push({ track: 'drums', drum, step: +Math.max(0, step).toFixed(2), gain: +gain.toFixed(3) });
+  };
+
+  const chordNotes = (c, base) => chordStack(c.root, c.qid, base);
+
+  function chordAt(out, c, track, step, dur, gain, base) {
+    for (const m of chordNotes(c, base == null ? 60 : base)) {
+      E(out, track, step, m, dur, gain * c.lift);
+    }
+  }
+
+  /* 扫弦：同一和弦错开几毫秒落下，才有“扫”的颗粒感 */
+  function strum(out, c, step, dir, gain) {
+    const arr = chordNotes(c, 48);
+    if (dir === 'up') arr.reverse();
+    arr.forEach((m, i) => E(out, 'chord', step + i * .06, m, 1.3, gain * c.lift));
+  }
+
+  function strumPattern(out, c, kind) {
+    const S = c.steps;
+    const downUp = [[0, 'down'], [2, 'up'], [4, 'down'], [6, 'up'],
+      [8, 'down'], [10, 'up'], [12, 'down'], [14, 'up']];
+    const folk = [[0, 'down'], [4, 'up'], [5.5, 'down'], [8, 'down'], [11.5, 'up'], [13.5, 'down']];
+    for (const [s, dir] of (kind === 'folk' ? folk : downUp)) {
+      if (s < S) strum(out, c, s, dir, kind === 'folk' ? .36 : .3);
+    }
+  }
+
+  function powerChord(out, c, step, gain, dur) {
+    const base = 48 + c.root;
+    for (const x of [0, 7, 12]) E(out, 'chord', step, base + x, dur, gain * c.lift);
+  }
+
+  function fingerpick(out, c) {
+    const S = c.steps, v = c.variation;
+    const low = 36 + c.root + (v % 2 ? 7 : 0);
+    const high = chordNotes(c, 48).map(m => m + 12);
+    E(out, 'arp', 0, low, 3.6, .5 * c.lift);
+    for (const s of [2, 4, 6, 10, 12, 14]) {
+      if (s >= S) continue;
+      E(out, 'arp', s, high[(s + v) % high.length], 1.6, .4 * c.lift);
+    }
+    if (S >= 8) E(out, 'arp', 8, low, 3.6, .46 * c.lift);
+  }
+
+  function arpeggio(out, c, track, stepSize, gain) {
+    const notes = chordNotes(c, 60).concat(chordNotes(c, 72));
+    const n = notes.length;
+    for (let s = 0, k = c.variation % n; s < c.steps; s += stepSize, k++) {
+      E(out, track, s, notes[k % n], stepSize === 1 ? .9 : 2.2, gain * c.lift);
+    }
+  }
+
+  /* 鼓组：不同风格有自己的律动，而不是一条通用四拍 */
+  function drumGroove(out, c) {
+    const S = c.steps, v = c.variation;
+    const hit = (k, s, g) => { if (s < S) K(out, k, s, g * c.lift); };
+
+    if (state.style === 'edm') {
+      for (let b = 0; b < c.bpb; b++) {
+        const s = b * 4;
+        hit('kick', s, 1);
+        if (b % 2 === 1) hit('clap', s, .85);
+        for (let k = 0; k < 4; k++) hit('hat', s + k, k === 0 ? .42 : .3);
+      }
+      hit('openhat', S - 2, .5);
+      return;
+    }
+
+    if (state.style === 'jazz') {
+      for (let s = 0; s < S; s += 4) { hit('hat', s, .48); hit('hat', s + 3.2, .34); }
+      for (let b = 0; b < c.bpb; b++) {
+        if (b % 2 === 0) hit('kick', b * 4, .42);
+        else hit('snare', b * 4, .3);
+      }
+      return;
+    }
+
+    for (let b = 0; b < c.bpb; b++) {
+      const s = b * 4;
+      if (state.style === 'ballad') {
+        if (b === 0) hit('kick', 0, .55);
+        if (b === Math.floor(c.bpb / 2)) hit('snare', s, .28);
+        hit('hat', s, .18);
+      } else if (state.style === 'folk') {
+        if (b === 0) hit('kick', 0, .6);
+        if (b === 2) hit('kick', s, .45);
+        if (b === 1 || b === 3) hit('snare', s, .3);
+        hit('hat', s, .18);
+      } else if (state.style === 'rock') {
+        hit('kick', s, b % 2 === 0 ? .85 : .5);
+        if (b % 2 === 1) hit('snare', s, .82);
+        hit('hat', s, .4);
+        hit('hat', s + 2, .34);
+        if (b === c.bpb - 1) hit('hat', s + 3, .26);
+      } else {
+        if (b % 2 === 0) hit('kick', s, .8);
+        else hit('snare', s, .68);
+        hit('hat', s, .42);
+        hit('hat', s + 2, .3);
+      }
+    }
+    if (S >= 12 && (v === 2 || v === 5)) {
+      for (let k = 0; k < 4; k++) hit('snare', S - 4 + k, .12 + k * .04);
+    }
+  }
+
+  /* 和弦轨：乐器决定“怎么弹和弦” */
+  function chordTrack(out, c) {
+    const inst = trackById('chord').inst;
+    const S = c.steps, v = c.variation;
+    const bass = 36 + c.root;
+
+    switch (inst) {
+      case 'piano': {
+        E(out, 'chord', 0, bass + 12, S / 2, .5 * c.lift);
+        if (S >= 12) E(out, 'chord', S / 2, bass + 12, S / 2, .44 * c.lift);
+        if (state.style === 'ballad') {
+          chordAt(out, c, 'chord', 0, S, .55);
+        } else if (state.style === 'jazz') {
+          for (const s of (v % 2 ? [0, 3.2, 5.2, 8.4] : [0, 2.2, 5, 7.4])) {
+            chordAt(out, c, 'chord', s, 1.7, .4);
+          }
+        } else {
+          chordAt(out, c, 'chord', 0, 3.3, .52);
+          if (S >= 8) chordAt(out, c, 'chord', 8, 3.3, .5);
+          if (v % 3 === 1 && S >= 12) chordAt(out, c, 'chord', 11, 2.6, .4);
+        }
+        break;
+      }
+      case 'epiano': {
+        const hits = state.style === 'jazz'
+          ? [0, 2.4, 4.8, 7.4, 10, 12.4]
+          : [0, 2.5, 5.5, 8, 10.5];
+        for (const s of hits) if (s < S) chordAt(out, c, 'chord', s, 1.4, .4);
+        break;
+      }
+      case 'organ': {
+        chordAt(out, c, 'chord', 0, S, .45);
+        E(out, 'chord', 0, bass + 12, S / 2, .38 * c.lift);
+        break;
+      }
+      case 'guitar': {
+        strumPattern(out, c, state.style === 'folk' || v % 2 === 0 ? 'folk' : 'pop');
+        break;
+      }
+      case 'eguitar': {
+        const hits = state.style === 'rock' ? [0, 4, 6, 8, 12, 14] : [0, 4, 8, 12];
+        for (const s of hits) if (s < S) powerChord(out, c, s, s % 4 === 0 ? .48 : .36, 1.1);
+        break;
+      }
+      case 'pluck': {
+        arpeggio(out, c, 'chord', 2, .42);
+        break;
+      }
+      case 'strings': {
+        // 弦乐分两层：低层大提琴 + 高层小提琴，形成真正的弦乐群
+        chordAt(out, c, 'chord', 0, S, .34, 48);
+        chordAt(out, c, 'chord', 0, S, .24, 60);
+        break;
+      }
+      case 'pad': {
+        chordAt(out, c, 'chord', 0, S, .38, 48);
+        break;
+      }
+      case 'bass':
+      case 'synthbass': {
+        E(out, 'chord', 0, bass, 3.4, .55 * c.lift);
+        if (S >= 8) E(out, 'chord', 8, bass + 7, 3.4, .5 * c.lift);
+        break;
+      }
+      default: chordAt(out, c, 'chord', 0, 3.3, .5);
+    }
+  }
+
+  /* 贝斯轨：根音五度 / 八分驱动 / 爵士走贝斯 */
+  function bassTrack(out, c) {
+    const inst = trackById('bass').inst;
+    const S = c.steps, v = c.variation;
+    const root = 36 + c.root;
+    const fifth = root + 7;
+    const oct = root + 12;
+    const N = (s, m, d, g) => E(out, 'bass', s, m, d, g * c.lift);
+
+    if (state.style === 'jazz') {
+      const iv = c.tones;
+      for (let k = 0; k < Math.min(4, Math.ceil(S / 4)); k++) {
+        const s = k * 4;
+        const m = k === 0 ? root
+          : k === 1 ? root + (iv[1] == null ? 4 : iv[1])
+          : k === 2 ? root + (iv[2] == null ? 7 : iv[2])
+          : c.nextBass - 1;
+        N(s, m, 3.4, .8);
+      }
+      return;
+    }
+    if (state.style === 'ballad') {
+      N(0, root, S / 2, .66);
+      if (S >= 8) N(S / 2, root, S / 2, .58);
+      return;
+    }
+    if (inst === 'synthbass') {
+      for (let s = 0; s < S; s += 2) N(s, s % 8 === 6 ? fifth : root, 1.7, .72);
+      if (v % 2 === 1) for (let s = 1; s < S; s += 2) N(s, oct, .8, .28);
+      return;
+    }
+    if (inst === 'piano') {
+      N(0, root, 3.6, .62);
+      if (S >= 8) N(8, oct, 3.6, .55);
+      return;
+    }
+    if (state.style === 'rock') {
+      for (let s = 0; s < S; s += 2) N(s, s % 8 === 4 ? fifth : root, 1.7, .78);
+      return;
+    }
+    if (state.style === 'edm') {
+      for (let s = 0; s < S; s += 2) N(s, s % 8 === 6 ? fifth : root, 1.5, .78);
+      return;
+    }
+    // 流行 / 民谣：根音打底，后半拍换五度或八度
+    N(0, root, 3.2, .78);
+    if (S >= 8) N(8, v % 2 ? oct : fifth, 3.2, .72);
+    if (S >= 16 && v % 3 === 1) N(12, oct, 1.5, .5);
+  }
+
+  /* 琶音轨：吉他指弹 / 钢琴阿尔贝蒂 / 拨弦分解 / 电吉他闷切 */
+  function arpTrack(out, c) {
+    const inst = trackById('arp').inst;
+    const S = c.steps, v = c.variation;
+
+    if (inst === 'guitar') { fingerpick(out, c); return; }
+
+    if (inst === 'eguitar') {
+      const base = 48 + c.root;
+      for (let s = 0; s < S; s++) {
+        const m = [base, base + 7, base + 12, base + 7][(s + v) % 4];
+        E(out, 'arp', s, m, .85, s % 4 === 0 ? .3 : .22);
+      }
+      return;
+    }
+
+    if (inst === 'piano') {
+      const notes = chordNotes(c, 60);
+      const low = notes[0] - 12, mid = notes[1], high = notes[2] == null ? notes[0] + 12 : notes[2];
+      const seq = [low, mid, high, mid];
+      for (let s = 0, k = 0; s < S; s += 2, k++) {
+        E(out, 'arp', s, seq[k % 4], 1.8, .4 * c.lift);
+      }
+      return;
+    }
+
+    if (inst === 'strings' || inst === 'pad' || inst === 'organ') {
+      arpeggio(out, c, 'arp', 4, .3);
+      return;
+    }
+
+    arpeggio(out, c, 'arp', inst === 'pluck' && state.style === 'edm' ? 1 : 2, .42);
+  }
+
+  /* 铺底轨：真正会延音的乐器走长音，钢琴类改为两半软和弦 */
+  function padTrack(out, c) {
+    const inst = trackById('pad').inst;
+    const S = c.steps;
+    if (inst === 'organ') {
+      chordAt(out, c, 'pad', 0, S, .4, 48);
+      E(out, 'pad', 0, 36 + c.root, S / 2, .35 * c.lift);
+      return;
+    }
+    if (inst === 'piano' || inst === 'epiano' || inst === 'guitar' ||
+        inst === 'eguitar' || inst === 'pluck') {
+      chordAt(out, c, 'pad', 0, S / 2, .38, 48);
+      chordAt(out, c, 'pad', S / 2, S / 2, .34, 48);
+      return;
+    }
+    chordAt(out, c, 'pad', 0, S, .42, 48);
+    if (c.lift > 1) {
+      for (const m of chordNotes(c, 48)) E(out, 'pad', 0, m + 12, S, .22 * c.lift);
+    }
+  }
+
+  /* 旋律轨：有词唱词，没词时按乐器给一段 riff */
+  function leadTrack(out, c, bar) {
+    const lyr = lyricEvents(c, bar);
+    if (lyr.length) { out.push(...lyr); return; }
+
+    const inst = trackById('lead').inst;
+    const pool = melodyPool(c.root, c.qid);
+    const contour = MELODY_CONTOURS[(c.variation + c.barIndex) % MELODY_CONTOURS.length];
+    const center = Math.min(pool.length - 2, 1 + (c.barIndex % 2) + (c.lift > 1 ? 1 : 0));
+    const note = k => Math.min(88, pool[Math.max(0, Math.min(pool.length - 1, center + contour[k % contour.length]))]);
+
+    if (inst === 'strings' || inst === 'pad' || inst === 'organ') {
+      E(out, 'lead', 0, note(2), c.steps, .55 * c.lift);
+      return;
+    }
+    if (inst === 'guitar' || inst === 'eguitar') {
+      for (let s = 0, k = 0; s < c.steps; s += 2, k++) {
+        E(out, 'lead', s, note(k), 1.5, .4 * c.lift);
+      }
+      return;
+    }
+    const rhythm = state.style === 'ballad'
+      ? [0, 2, 6, 8, 12]
+      : inst === 'epiano' ? [0, 2, 5, 8, 10, 13]
+      : [0, 1, 3, 6, 8, 9, 11, 13];
+    let k = 0;
+    for (const s of rhythm) {
+      if (s >= c.steps) continue;
+      E(out, 'lead', s, note(k), 1.2, (.55 + (c.lift > 1 ? .06 : 0)) * c.lift);
+      k++;
+    }
+  }
+
   /* ── 编曲上下文与事件生成 ── */
   function arrangeBar(bar, barIndex) {
     const out = [];
     const { root, qid } = parseChord(bar.chord || '0|');
+    const nextBar = state.bars[(barIndex + 1) % state.bars.length] || bar;
+    const nextBass = 36 + parseChord(nextBar.chord || '0|').root;
     const c = {
       root, qid,
       tones: qualityOf(qid).intervals,
       chordMidis: chordStack(root, qid, 60),
       bassMidi: 36 + root,
+      nextBass,
       bpb: state.bpb,
       steps: state.bpb * 4,
       variation: state.variation % 8,
       lift: (bar.section === '副歌' || bar.section === '预副歌') ? 1.08 : 1,
       barIndex
     };
-    const style = STYLES.find(s => s.id === state.style) || STYLES[0];
-    style.gen(out, c);
-    out.push(...lyricEvents(c, bar));
+    drumGroove(out, c);
+    chordTrack(out, c);
+    bassTrack(out, c);
+    arpTrack(out, c);
+    padTrack(out, c);
+    leadTrack(out, c, bar);
     return out;
   }
 
@@ -659,14 +871,55 @@
       .join('');
   }
 
+  function techniqueOf(role, inst) {
+    if (role === 'drums') return '律动';
+    if (role === 'bass') {
+      if (inst === 'synthbass') return '八分驱动';
+      if (inst === 'bass') return state.style === 'jazz' ? '走贝斯' : '根音五度';
+      return '低音线条';
+    }
+    if (role === 'chord') {
+      switch (inst) {
+        case 'piano': return '低音+柱式';
+        case 'epiano': return '切分Comping';
+        case 'organ': return '持续音+脚键盘';
+        case 'guitar': return '扫弦';
+        case 'eguitar': return 'Power强切';
+        case 'pluck': return '分解琶音';
+        case 'strings': return '长音';
+        case 'pad': return '铺底';
+        case 'bass':
+        case 'synthbass': return '低音和弦';
+        default: return '柱式';
+      }
+    }
+    if (role === 'arp') {
+      switch (inst) {
+        case 'guitar': return '指弹';
+        case 'eguitar': return '16分闷切';
+        case 'piano': return '阿尔贝蒂';
+        case 'pluck': return '琶音';
+        case 'strings':
+        case 'pad': return '慢琶音';
+        default: return '分解';
+      }
+    }
+    if (role === 'pad') {
+      if (inst === 'organ') return '持续音';
+      if (inst === 'piano' || inst === 'epiano' || inst === 'guitar' || inst === 'eguitar' || inst === 'pluck') return '软和弦';
+      return '长音铺底';
+    }
+    return '旋律/Riff';
+  }
+
   function renderTracks() {
     els.trackRows.innerHTML = state.tracks.map(t => {
       const instHtml = t.id === 'drums'
         ? '<select class="t-inst" disabled><option>鼓组</option></select>'
-        : `<select class="t-inst">${tonalOptions(t.inst)}</select>`;
+        : `<select class="t-inst" title="切换乐器会同时切换演奏法">${tonalOptions(t.inst)}</select>`;
       return `
       <div class="track-row${t.on ? '' : ' off'}${t.solo ? ' soloed' : ''}" data-id="${t.id}">
-        <div class="t-name"><i></i><span>${t.name}</span></div>
+        <div class="t-name"><i></i><span>${t.name}</span><b class="t-tech">${techniqueOf(t.id, t.inst)}</b></div>
         ${instHtml}
         <button class="t-toggle${t.on ? ' on' : ''}">${t.on ? '开' : '关'}</button>
         <input class="vol" type="range" min="0" max="100" value="${Math.round(t.vol * 100)}">
@@ -725,31 +978,19 @@
     renderBars();
   }
 
-  /* ── 试听 ── */
+  /* ── 试听：按该乐器真实的演奏法弹一小节 ── */
   function previewBar(bar, instId, trackId) {
-    if (!bar) return;
+    if (!bar || !bar.chord) return;
     engineReady();
-    if (trackId === 'lead') {
-      const evs = arrangeBar(bar, state.sel).filter(e => e.track === 'lead');
-      if (!evs.length) { toast('这一小节还没有词：去词格填词后点“同步词格”'); return; }
-      const t0 = engine.now() + .04;
-      const stepDur = (60 / state.bpm) / 4;
-      for (const e of evs) {
-        engine.playNote(instId, e.midi, t0 + e.step * stepDur, e.dur * stepDur, { gain: e.gain });
-      }
-      return;
+    const role = trackId || (instId === 'drums' ? 'drums' : 'chord');
+    const evs = arrangeBar(bar, state.sel).filter(e => e.track === role);
+    if (!evs.length) { toast('这一小节没有可试听的内容'); return; }
+    const t0 = engine.now() + .05;
+    const stepDur = (60 / state.bpm) / 4;
+    for (const e of evs) {
+      if (e.track === 'drums') engine.playDrum(e.drum, t0 + e.step * stepDur, { gain: e.gain });
+      else engine.playNote(instId, e.midi, t0 + e.step * stepDur, e.dur * stepDur, { gain: e.gain });
     }
-    if (!bar.chord) return;
-    const { root, qid } = parseChord(bar.chord);
-    const iv = qualityOf(qid).intervals;
-    if (instId === 'drums') {
-      const t = engine.now() + .03;
-      engine.playDrum('kick', t, { gain: .6 });
-      engine.playDrum('snare', t + .3, { gain: .35 });
-      engine.playDrum('hat', t + .15, { gain: .3 });
-      return;
-    }
-    engine.previewChord(instId, 60 + root, iv, 1.1, { gain: .85 });
   }
 
   function applyCombo(id) {
@@ -1022,7 +1263,7 @@
       const barSec = barDur();
       const total = state.bars.length * barSec + .6;
       const off = new Offline(2, Math.ceil(total * sr), sr);
-      const eng = window.CigeSynth.createEngine({ ctx: off, master: .33 });
+      const eng = window.CigeSynth.createEngine({ ctx: off, master: .5 });
       const stepDur = (60 / state.bpm) / 4;
       for (let i = 0; i < state.bars.length; i++) {
         scheduleEvents(eng, arrangeBar(state.bars[i], i), i * barSec, stepDur);
@@ -1098,7 +1339,7 @@
     state.variation++;
     renderBars();
     if (!state.playing) previewBar(state.bars[state.sel], trackById('chord').inst);
-    toast('已重新生成伴奏织体');
+    toast('已重新生成演奏织体');
   });
 
   els.trackRows.addEventListener('click', e => {
@@ -1127,7 +1368,8 @@
     if (e.target.classList.contains('t-inst')) {
       t.inst = e.target.value;
       save();
-      previewBar(state.bars[state.sel], t.inst);
+      renderTracks();
+      previewBar(state.bars[state.sel], t.inst, t.id);
     }
   });
 
