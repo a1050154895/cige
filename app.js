@@ -98,7 +98,7 @@
     confFill: $('#confFill'), confLabel: $('#confLabel'),
     grid: $('#grid'), gridScroll: $('#gridScroll'), gridInfo: $('#gridInfo'),
     btnAddSection: $('#btnAddSection'),
-    btnExport: $('#btnExport'), saveHint: $('#saveHint'),
+    btnExport: $('#btnExport'), saveHint: $('#saveHint'), btnHarmony: $('#btnHarmony'),
     dialog: $('#exportDialog'), exportText: $('#exportText'), exportTabs: $('#exportTabs'),
     exportInfo: $('#exportInfo'), btnCopy: $('#btnCopy'), btnDownload: $('#btnDownload'),
     btnCloseDialog: $('#btnCloseDialog')
@@ -187,6 +187,12 @@
 
       renderGrid();
       applyUI();
+
+      if (pendingChords) {
+        const p = pendingChords;
+        pendingChords = null;
+        applyHarmony(p);
+      }
       showStudio();
 
       S.view = { start: 0, end: S.duration };
@@ -924,6 +930,35 @@
     hintSaved._t = setTimeout(() => els.saveHint.classList.remove('show'), 1400);
   }
 
+  /* 和弦台联动：接收和弦进行并按小节填入 */
+  const HARMONY_KEY = 'cige.chords.incoming';
+  let pendingChords = null;
+
+  function applyHarmony(payload) {
+    if (!payload || !Array.isArray(payload.chords)) return false;
+    const list = payload.chords.map(c => (typeof c === 'string' ? c.trim() : '')).filter(Boolean);
+    if (!list.length) return false;
+    if (!S.bars.length) { pendingChords = payload; return false; }
+    S.bars.forEach((bar, i) => { bar.chord = list[i % list.length]; });
+    renderGrid();
+    saveProject();
+    els.saveHint.textContent = '和弦已导入';
+    els.saveHint.classList.add('show');
+    clearTimeout(hintSaved._t);
+    hintSaved._t = setTimeout(() => els.saveHint.classList.remove('show'), 1600);
+    return true;
+  }
+
+  (function readPendingHarmony() {
+    try {
+      const raw = localStorage.getItem(HARMONY_KEY);
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      localStorage.removeItem(HARMONY_KEY);
+      if (p && Date.now() - (p.at || 0) < 600000) pendingChords = p;
+    } catch (e) { /* ignore */ }
+  })();
+
   function restoreProject(file) {
     try {
       const raw = localStorage.getItem(LS_KEY);
@@ -953,6 +988,14 @@
   $('#btnImport').addEventListener('click', pickFile);
   $('#btnEmptyImport').addEventListener('click', pickFile);
   $('#btnCtxChange').addEventListener('click', pickFile);
+
+  els.btnHarmony.addEventListener('click', () => {
+    window.open('harmony.html', 'cige-harmony', 'width=1180,height=820,menubar=no,toolbar=no');
+  });
+
+  window.addEventListener('message', e => {
+    if (e.data && e.data.type === 'cige:chords') applyHarmony(e.data);
+  });
 
   els.fileInput.addEventListener('change', e => {
     const f = e.target.files && e.target.files[0];

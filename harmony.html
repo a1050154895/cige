@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>和弦台 · 词格</title>
+<link rel="stylesheet" href="harmony.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <div class="logo">和</div>
+    <div class="brand-text">
+      <h1>和弦台</h1>
+      <p>词格 · 和弦进行工作台</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span class="toast" id="toast"></span>
+    <button class="btn btn-ghost" id="btnCopy">复制和弦谱</button>
+    <button class="btn btn-ghost" id="btnJson">下载 JSON</button>
+    <button class="btn btn-primary" id="btnSend">发送到词格</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="side">
+    <section class="panel">
+      <h2>调性与速度</h2>
+      <div class="row">
+        <label class="field">
+          <span>调</span>
+          <select id="keySelect"></select>
+        </label>
+        <label class="field">
+          <span>调式</span>
+          <select id="modeSelect">
+            <option value="major">大调</option>
+            <option value="minor">小调</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="field">
+          <span>BPM</span>
+          <input id="bpmInput" type="number" min="40" max="240" step="1" value="120">
+        </label>
+        <label class="field">
+          <span>每小节拍数</span>
+          <select id="bpbSelect">
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4" selected>4</option>
+            <option value="6">6</option>
+            <option value="8">8</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>常用进行</h2>
+      <div class="presets" id="presets"></div>
+    </section>
+
+    <section class="panel">
+      <h2>和弦库 <small id="libTarget">点击填入选中小节</small></h2>
+      <div class="lib-tabs" id="libTabs"></div>
+      <div class="lib-grid" id="libGrid"></div>
+    </section>
+  </aside>
+
+  <section class="main">
+    <div class="main-head">
+      <h2>和弦进行</h2>
+      <span class="hint" id="progInfo">—</span>
+      <div class="spacer"></div>
+      <button class="mini" id="btnAddBar">＋ 小节</button>
+      <button class="mini" id="btnDelBar">－ 末尾</button>
+      <button class="mini" id="btnClear">清空</button>
+      <button class="mini play" id="btnPlay">▶ 播放</button>
+    </div>
+
+    <div class="bar-grid" id="barGrid"></div>
+
+    <div class="main-foot">
+      <span class="hint">点击小节选中后，用左侧和弦库填入；播放时按小节循环。</span>
+      <div class="spacer"></div>
+      <span class="hint" id="timeInfo">—</span>
+    </div>
+  </section>
+</main>
+
+<datalist id="sections">
+  <option value="主歌"></option>
+  <option value="预副歌"></option>
+  <option value="副歌"></option>
+  <option value="桥段"></option>
+  <option value="尾声"></option>
+</datalist>
+
+<script src="harmony.js"></script>
+</body>
+</html>
