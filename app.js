@@ -122,8 +122,9 @@
   function syncBars() {
     const total = totalBars();
     if (S.bars.length > total) S.bars.length = total;
-    while (S.bars.length < total) S.bars.push({ cells: new Array(S.beatsPerBar).fill('') });
+    while (S.bars.length < total) S.bars.push({ cells: new Array(S.beatsPerBar).fill(''), chord: '' });
     for (const bar of S.bars) {
+      if (typeof bar.chord !== 'string') bar.chord = '';
       if (!Array.isArray(bar.cells)) bar.cells = [];
       while (bar.cells.length < S.beatsPerBar) bar.cells.push('');
       if (bar.cells.length > S.beatsPerBar) bar.cells.length = S.beatsPerBar;
@@ -170,6 +171,20 @@
       if (!restored) S.sections = [{ bar: 0, name: '主歌' }];
 
       syncBars();
+
+      if (window.ChordDetector) {
+        els.loadingText.textContent = '正在识别和弦…';
+        await frame();
+        try {
+          const chords = window.ChordDetector.detectChords(buffer, {
+            bpm: S.bpm, firstBeat: S.firstBeat, beatsPerBar: S.beatsPerBar
+          });
+          chords.forEach((c, i) => {
+            if (c && S.bars[i] && !S.bars[i].chord) S.bars[i].chord = c;
+          });
+        } catch (err) { console.warn('和弦识别跳过', err); }
+      }
+
       renderGrid();
       applyUI();
       showStudio();
@@ -644,6 +659,7 @@
       const sec = secMap.get(b);
       if (sec) frag.appendChild(buildSectionRow(sec));
       frag.appendChild(buildBarRow(b));
+      frag.appendChild(buildChordRow(b));
     }
     els.grid.replaceChildren(frag);
     S.curBar = -1; S.curBeat = -1; S.curRow = null; S.curWrap = null; S.curProgress = null;
@@ -663,6 +679,18 @@
       html += `<div class="cell-wrap${dense}"><input class="cell" type="text" maxlength="24" data-bar="${b}" data-beat="${k}" value="${escapeHtml(v)}" autocomplete="off" spellcheck="false"><i class="cell-progress"></i></div>`;
     }
     row.innerHTML = html;
+    return row;
+  }
+
+  function buildChordRow(b) {
+    const row = document.createElement('div');
+    row.className = 'chord-row';
+    row.dataset.bar = b;
+    const chord = escapeHtml(S.bars[b].chord || '');
+    row.innerHTML = `
+      <div class="bar-gutter chord-gutter"><span class="chord-label">和弦</span></div>
+      <input class="chord-chip" type="text" maxlength="10" data-bar="${b}" value="${chord}"
+        placeholder="—" autocomplete="off" spellcheck="false">`;
     return row;
   }
 
@@ -792,9 +820,11 @@
       for (let b = 0; b < S.bars.length; b++) {
         if (secMap.has(b)) out += `\n【${secMap.get(b)}】\n`;
         const text = smartJoin(S.bars[b].cells);
-        if (!text) continue;
+        const chord = (S.bars[b].chord || '').trim();
+        if (!text && !chord) continue;
         const mark = String(b + 1).padStart(3, '0');
-        out += `${mark}  ${fmtTime(barStart(b), false)}  ${text}\n`;
+        const tag = chord ? `[${chord}] ` : '';
+        out += `${mark}  ${fmtTime(barStart(b), false)}  ${tag}${text}\n`;
         totalLines++;
       }
       return { text: out, lines: totalLines, ext: 'txt' };
@@ -806,7 +836,7 @@
       duration: Math.round(S.duration * 1000) / 1000,
       bpm: S.bpm, firstBeat: S.firstBeat, beatsPerBar: S.beatsPerBar,
       sections: S.sections.slice(),
-      bars: S.bars.map(b => b.cells.slice())
+      bars: S.bars.map(b => ({ cells: b.cells.slice(), chord: b.chord || '' }))
     };
     return { text: JSON.stringify(project, null, 2), lines: S.bars.length, ext: 'json' };
   }
@@ -878,7 +908,7 @@
       localStorage.setItem(LS_KEY, JSON.stringify({
         audioName: S.fileName, audioSize: S.fileSize,
         bpm: S.bpm, firstBeat: S.firstBeat, beatsPerBar: S.beatsPerBar,
-        bars: S.bars.map(b => b.cells),
+        bars: S.bars.map(b => ({ cells: b.cells, chord: b.chord || '' })),
         sections: S.sections,
         savedAt: Date.now()
       }));
@@ -905,9 +935,13 @@
       if ([2, 3, 4, 6, 8].includes(p.beatsPerBar)) S.beatsPerBar = p.beatsPerBar;
       if (Array.isArray(p.sections)) S.sections = p.sections.filter(s => s && typeof s.bar === 'number');
       if (Array.isArray(p.bars)) {
-        S.bars = p.bars.map(cells => ({
-          cells: Array.from({ length: S.beatsPerBar }, (_, i) => (cells && typeof cells[i] === 'string' ? cells[i] : ''))
-        }));
+        S.bars = p.bars.map(item => {
+          const cells = Array.isArray(item) ? item : (item && item.cells) || [];
+          return {
+            cells: Array.from({ length: S.beatsPerBar }, (_, i) => (typeof cells[i] === 'string' ? cells[i] : '')),
+            chord: !Array.isArray(item) && item && typeof item.chord === 'string' ? item.chord : ''
+          };
+        });
       }
       return true;
     } catch (e) { return false; }
@@ -1073,12 +1107,25 @@
     await frame();
     const res = detectTempo(S.buffer);
     S.bpm = res.bpm; S.firstBeat = res.firstBeat; S.confidence = res.confidence;
-    syncBars(); renderGrid(); applyUI(); paint(); saveProject();
+    syncBars();
+    if (window.ChordDetector) {
+      const chords = window.ChordDetector.detectChords(S.buffer, {
+        bpm: S.bpm, firstBeat: S.firstBeat, beatsPerBar: S.beatsPerBar
+      });
+      S.bars.forEach((bar, i) => { bar.chord = chords[i] || ''; });
+    }
+    renderGrid(); applyUI(); paint(); saveProject();
     hideLoading();
   });
 
   /* 歌词输入 */
   els.grid.addEventListener('input', e => {
+    const chip = e.target.closest('.chord-chip');
+    if (chip) {
+      const bar = Number(chip.dataset.bar);
+      if (S.bars[bar]) { S.bars[bar].chord = chip.value.trim(); saveProjectDebounced(); }
+      return;
+    }
     const inp = e.target.closest('.cell');
     if (!inp) return;
     const bar = Number(inp.dataset.bar);
